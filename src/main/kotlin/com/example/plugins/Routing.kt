@@ -1,5 +1,6 @@
 package com.example.plugins
 
+import com.example.dao.dao
 import com.example.models.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -28,7 +29,7 @@ fun Route.articlesRouting() {
     }
     route("articles") {
         get {
-            call.respond(FreeMarkerContent("index.ftl", mapOf("articles" to articlesStorage)))
+            call.respond(FreeMarkerContent("index.ftl", mapOf("articles" to dao.allArticles())))
         }
 
         get("new") {
@@ -39,42 +40,45 @@ fun Route.articlesRouting() {
             val formParameters = call.receiveParameters()
             val title = formParameters.getOrFail("title")
             val body = formParameters.getOrFail("body")
-            val newEntry = Article.newEntry(title, body)
-            articlesStorage.add(newEntry)
-            call.respondRedirect("/articles/${newEntry.id}")
+            val newEntry = dao.addNewArticle(title, body)
+            call.respondRedirect("/articles/${newEntry?.id}")
         }
 
         route("{id}") {
             get {
                 val id = call.parameters.getOrFail<Int>("id").toInt()
-                call.respond(FreeMarkerContent("show.ftl",
-                    mapOf(
-                        "article" to articlesStorage.find { it.id == id }
+                call.respond(
+                    FreeMarkerContent(
+                        "show.ftl",
+                        mapOf(
+                            "article" to dao.article(id)
+                        )
                     )
-                ))
+                )
             }
             get("edit") {
                 val id = call.parameters.getOrFail<Int>("id").toInt()
-                call.respond(FreeMarkerContent("edit.ftl",
-                    mapOf(
-                        "article" to articlesStorage.find { it.id == id }
+                call.respond(
+                    FreeMarkerContent(
+                        "edit.ftl",
+                        mapOf(
+                            "article" to dao.article(id)
+                        )
                     )
-                ))
+                )
             }
             post {
                 val id = call.parameters.getOrFail<Int>("id").toInt()
                 val formParameters = call.receiveParameters()
                 when (formParameters.getOrFail("_action")) {
                     "update" -> {
-                        val index = articlesStorage.indexOf(articlesStorage.find { it.id == id })
                         val title = formParameters.getOrFail("title")
                         val body = formParameters.getOrFail("body")
-                        articlesStorage[index].title = title
-                        articlesStorage[index].body = body
+                        dao.editArticle(id, title, body)
                         call.respondRedirect("/articles/$id")
                     }
                     "delete" -> {
-                        articlesStorage.removeIf { it.id == id }
+                        dao.deleteArticle(id)
                         call.respondRedirect("/articles")
                     }
                 }
